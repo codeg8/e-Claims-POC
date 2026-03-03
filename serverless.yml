@@ -1,0 +1,271 @@
+service: e-Claims-POC
+
+frameworkVersion: "3"
+
+provider:
+  name: aws
+  runtime: python3.11
+  region: ${opt:region, 'us-east-1'}
+  stage: ${opt:stage, 'dev'}
+  environment:
+    CLAIMS_TABLE: ${self:service}-claims-${self:provider.stage}
+    TOKENS_TABLE: ${self:service}-tokens-${self:provider.stage}
+    STATE_MACHINE_ARN: arn:aws:states:${aws:region}:${aws:accountId}:stateMachine:${self:service}-COrE-${self:provider.stage}
+    STAGE: ${self:provider.stage}
+    JWT_SECRET: ${ssm:/insurance-core/jwt-secret, 'dev-secret-change-in-prod-at-least-256-bits-long'}
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:PutItem
+            - dynamodb:GetItem
+            - dynamodb:UpdateItem
+            - dynamodb:Query
+            - dynamodb:Scan
+          Resource:
+            - !GetAtt ClaimsTable.Arn
+            - !Sub "${ClaimsTable.Arn}/index/*"
+            - !GetAtt TokensTable.Arn
+        - Effect: Allow
+          Action:
+            - states:StartExecution
+            - states:DescribeExecution
+            - states:SendTaskSuccess
+            - states:SendTaskFailure
+          Resource: "*"
+
+plugins:
+  - serverless-offline
+  - serverless-python-requirements
+
+custom:
+  serverless-offline:
+    httpPort: 3000
+    noPrependStageInUrl: true
+  pythonRequirements:
+    dockerizePip: false
+    slim: true
+
+package:
+  patterns:
+    - "!node_modules/**"
+    - "!.venv/**"
+    - "!__pycache__/**"
+    - "!**/*.pyc"
+
+# ─────────────────────────────────────────────
+# Lambda Functions
+# ─────────────────────────────────────────────
+functions:
+
+  # ── Claims ──
+  submitClaim:
+    handler: src/handlers/claims.submit
+    events:
+      - http:
+          path: /claims
+          method: post
+          cors: true
+          authorizer:
+            name: jwtAuthorizer
+            resultTtlInSeconds: 0
+            identitySource: method.request.header.Authorization
+
+  getClaim:
+    handler: src/handlers/claims.get_claim
+    events:
+      - http:
+          path: /claims/{claimId}
+          method: get
+          cors: true
+          authorizer:
+            name: jwtAuthorizer
+            resultTtlInSeconds: 0
+            identitySource: method.request.header.Authorization
+
+  listClaims:
+    handler: src/handlers/claims.list_claims
+    events:
+      - http:
+          path: /claims
+          method: get
+          cors: true
+          authorizer:
+            name: jwtAuthorizer
+            resultTtlInSeconds: 0
+            identitySource: method.request.header.Authorization
+
+  # ── Actions (resume state machine from human steps) ──
+  adjusterReview:
+    handler: src/handlers/actions.adjuster_review
+    events:
+      - http:
+          path: /claims/{claimId}/adjuster-review
+          method: post
+          cors: true
+          authorizer:
+            name: jwtAuthorizer
+            resultTtlInSeconds: 0
+            identitySource: method.request.header.Authorization
+
+  supervisorApproval:
+    handler: src/handlers/actions.supervisor_approval
+    events:
+      - http:
+          path: /claims/{claimId}/supervisor-approval
+          method: post
+          cors: true
+          authorizer:
+            name: jwtAuthorizer
+            resultTtlInSeconds: 0
+            identitySource: method.request.header.Authorization
+
+  # ── Step Functions activity workers ──
+  autoTriage:
+    handler: src/handlers/workers.auto_triage
+
+  prepareSettlement:
+    handler: src/handlers/workers.prepare_settlement
+
+  closeClaim:
+    handler: src/handlers/workers.close_claim
+
+  # ── Authorizer ──
+  jwtAuthorizer:
+    handler: src/handlers/authorizer.handler
+
+# ─────────────────────────────────────────────
+# AWS Resources
+# ─────────────────────────────────────────────
+resources:
+  Resources:
+
+    ClaimsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.CLAIMS_TABLE}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: claimId
+            AttributeType: S
+          - AttributeName: status
+            AttributeType: S
+          - AttributeName: assignedTo
+            AttributeType: S
+          - AttributeName: createdAt
+            AttributeType: S
+        KeySchema:
+          - AttributeName: claimId
+            KeyType: HASH
+        GlobalSecondaryIndexes:
+          - IndexName: status-createdAt-index
+            KeySchema:
+              - AttributeName: status
+                KeyType: HASH
+              - AttributeName: createdAt
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
+          - IndexName: assignedTo-index
+            KeySchema:
+              - AttributeName: assignedTo
+                KeyType: HASH
+              - AttributeName: createdAt
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
+
+    TokensTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.TOKENS_TABLE}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: claimId
+            AttributeType: S
+          - AttributeName: step
+            AttributeType: S
+        KeySchema:
+          - AttributeName: claimId
+            KeyType: HASH
+          - AttributeName: step
+            KeyType: RANGE
+        TimeToLiveSpecification:
+          AttributeName: ttl
+          Enabled: true
+
+    StateMachineRole:
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service: states.amazonaws.com
+              Action: sts:AssumeRole
+        Policies:
+          - PolicyName: StateMachinePolicy
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Effect: Allow
+                  Action: lambda:InvokeFunction
+                  Resource:
+                    - !GetAtt AutoTriageLambdaFunction.Arn
+                    - !GetAtt PrepareSettlementLambdaFunction.Arn
+                    - !GetAtt CloseClaimLambdaFunction.Arn
+                - Effect: Allow
+                  Action:
+                    - logs:CreateLogDelivery
+                    - logs:GetLogDelivery
+                    - logs:UpdateLogDelivery
+                    - logs:DeleteLogDelivery
+                    - logs:ListLogDeliveries
+                    - logs:PutLogEvents
+                    - logs:PutResourcePolicy
+                    - logs:DescribeResourcePolicies
+                    - logs:DescribeLogGroups
+                  Resource: "*"
+                - Effect: Allow
+                  Action:
+                    - xray:PutTraceSegments
+                    - xray:PutTelemetryRecords
+                    - xray:GetSamplingRules
+                    - xray:GetSamplingTargets
+                  Resource: "*"
+
+    ClaimStateMachine:
+      Type: AWS::StepFunctions::StateMachine
+      Properties:
+        StateMachineName: ${self:service}-COrE-${self:provider.stage}
+        StateMachineType: STANDARD
+        RoleArn: !GetAtt StateMachineRole.Arn
+        DefinitionSubstitutions:
+          AutoTriageLambdaFunctionArn: !GetAtt AutoTriageLambdaFunction.Arn
+          PrepareSettlementLambdaFunctionArn: !GetAtt PrepareSettlementLambdaFunction.Arn
+          CloseClaimLambdaFunctionArn: !GetAtt CloseClaimLambdaFunction.Arn
+        Definition: ${file(statemachine/claim-workflow.json)}
+        TracingConfiguration:
+          Enabled: true
+        LoggingConfiguration:
+          Level: ALL
+          IncludeExecutionData: true
+          Destinations:
+            - CloudWatchLogsLogGroup:
+                LogGroupArn: !GetAtt StateMachineLogGroup.Arn
+
+    StateMachineLogGroup:
+      Type: AWS::Logs::LogGroup
+      Properties:
+        LogGroupName: /aws/states/${self:service}-COrE-${self:provider.stage}
+        RetentionInDays: 30
+
+  Outputs:
+    StateMachineArn:
+      Value: !Ref ClaimStateMachine
+    ClaimsTableName:
+      Value: !Ref ClaimsTable
+    TokensTableName:
+      Value: !Ref TokensTable

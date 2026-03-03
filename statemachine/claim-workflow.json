@@ -1,0 +1,191 @@
+{
+  "Comment": "COrE - Claim Orchestration Engine | POC version. Happy path flows top-to-bottom. Escalation paths removed for demo clarity.",
+  "StartAt": "Step 1 - Policy Validation",
+
+  "States": {
+
+    "Step 1 - Policy Validation": {
+      "Type": "Task",
+      "Comment": "[AUTOMATED] Runs fraud scoring and assigns claim priority. Retries 3x on Lambda errors.",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${AutoTriageLambdaFunctionArn}",
+        "Payload": {
+          "claimId.$": "$.claimId",
+          "claimType.$": "$.claimType",
+          "amount.$": "$.amount",
+          "policyNumber.$": "$.policyNumber"
+        }
+      },
+      "ResultSelector": {
+        "fraudScore.$": "$.Payload.fraudScore",
+        "priority.$": "$.Payload.priority",
+        "triageNotes.$": "$.Payload.triageNotes"
+      },
+      "ResultPath": "$.triage",
+      "Retry": [
+        {
+          "ErrorEquals": ["Lambda.ServiceException", "Lambda.TooManyRequestsException"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ],
+      "Next": "Step 2 - Adjuster Review"
+    },
+
+    "Step 2 - Adjuster Review": {
+      "Type": "Task",
+      "Comment": "[HUMAN - PAUSED] Execution waits here until adjuster calls the API. Resumes immediately on API call.",
+      "Resource": "arn:aws:states:::lambda:invoke.waitForTaskToken",
+      "Parameters": {
+        "FunctionName": "${AutoTriageLambdaFunctionArn}",
+        "Payload": {
+          "step": "ADJUSTER_REVIEW",
+          "claimId.$": "$.claimId",
+          "taskToken.$": "$$.Task.Token",
+          "triage.$": "$.triage"
+        }
+      },
+      "ResultPath": "$.adjusterReview",
+      "Catch": [
+        {
+          "ErrorEquals": ["ClaimRejected"],
+          "Next": "Step 2 REJECTED - By Adjuster",
+          "ResultPath": "$.rejectionReason"
+        }
+      ],
+      "Next": "Step 3 - Supervisor Required?"
+    },
+
+    "Step 3 - Supervisor Required?": {
+      "Type": "Choice",
+      "Comment": "[ROUTING] Approved + amount > $10,000 means supervisor sign-off required. Otherwise go straight to settlement.",
+      "Choices": [
+        {
+          "And": [
+            {
+              "Variable": "$.adjusterReview.decision",
+              "StringEquals": "APPROVED"
+            },
+            {
+              "Variable": "$.amount",
+              "NumericGreaterThan": 10000
+            }
+          ],
+          "Next": "Step 4 - Supervisor Approval"
+        },
+        {
+          "Variable": "$.adjusterReview.decision",
+          "StringEquals": "APPROVED",
+          "Next": "Step 5 - Prepare Settlement"
+        }
+      ],
+      "Default": "Step 5 - Prepare Settlement"
+    },
+
+    "Step 4 - Supervisor Approval": {
+      "Type": "Task",
+      "Comment": "[HUMAN - PAUSED] High-value claim (> $10,000). Waits for supervisor sign-off via API. Resumes immediately on API call.",
+      "Resource": "arn:aws:states:::lambda:invoke.waitForTaskToken",
+      "Parameters": {
+        "FunctionName": "${AutoTriageLambdaFunctionArn}",
+        "Payload": {
+          "step": "SUPERVISOR_APPROVAL",
+          "claimId.$": "$.claimId",
+          "taskToken.$": "$$.Task.Token",
+          "adjusterReview.$": "$.adjusterReview",
+          "amount.$": "$.amount"
+        }
+      },
+      "ResultPath": "$.supervisorApproval",
+      "Catch": [
+        {
+          "ErrorEquals": ["ClaimRejected"],
+          "Next": "Step 4 REJECTED - By Supervisor",
+          "ResultPath": "$.rejectionReason"
+        }
+      ],
+      "Next": "Step 5 - Prepare Settlement"
+    },
+
+    "Step 5 - Prepare Settlement": {
+      "Type": "Task",
+      "Comment": "[AUTOMATED] Calculates final payout, generates settlement documents, initiates payment.",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${PrepareSettlementLambdaFunctionArn}",
+        "Payload": {
+          "claimId.$": "$.claimId",
+          "amount.$": "$.amount",
+          "adjusterReview.$": "$.adjusterReview",
+          "policyNumber.$": "$.policyNumber"
+        }
+      },
+      "ResultSelector": {
+        "settlementAmount.$": "$.Payload.settlementAmount",
+        "paymentRef.$": "$.Payload.paymentRef",
+        "documentsGenerated.$": "$.Payload.documentsGenerated"
+      },
+      "ResultPath": "$.settlement",
+      "Retry": [
+        {
+          "ErrorEquals": ["Lambda.ServiceException"],
+          "IntervalSeconds": 5,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ],
+      "Next": "Step 6 - Close Claim (Approved)"
+    },
+
+    "Step 6 - Close Claim (Approved)": {
+      "Type": "Task",
+      "Comment": "[AUTOMATED] Marks claim CLOSED_APPROVED. Sends claimant notification. Writes audit record.",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${CloseClaimLambdaFunctionArn}",
+        "Payload": {
+          "claimId.$": "$.claimId",
+          "settlement.$": "$.settlement",
+          "outcome": "CLOSED_APPROVED"
+        }
+      },
+      "ResultPath": null,
+      "End": true
+    },
+
+    "Step 2 REJECTED - By Adjuster": {
+      "Type": "Task",
+      "Comment": "[TERMINAL] Adjuster rejected the claim. Notifies claimant with rejection reason.",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${CloseClaimLambdaFunctionArn}",
+        "Payload": {
+          "claimId.$": "$.claimId",
+          "outcome": "CLOSED_REJECTED",
+          "reason.$": "$.rejectionReason"
+        }
+      },
+      "ResultPath": null,
+      "End": true
+    },
+
+    "Step 4 REJECTED - By Supervisor": {
+      "Type": "Task",
+      "Comment": "[TERMINAL] Supervisor rejected the high-value claim. Notifies claimant with rejection reason.",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${CloseClaimLambdaFunctionArn}",
+        "Payload": {
+          "claimId.$": "$.claimId",
+          "outcome": "CLOSED_REJECTED",
+          "reason.$": "$.rejectionReason"
+        }
+      },
+      "ResultPath": null,
+      "End": true
+    }
+
+  }
+}

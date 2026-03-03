@@ -1,0 +1,16 @@
+{
+  "name": "e-Claims-POC",
+  "version": "1.0.0",
+  "description": "COrE - Claim Orchestration Engine (Python)",
+  "scripts": {
+    "dev": "serverless offline start --reloadHandler",
+    "deploy:dev": "serverless deploy --stage dev",
+    "deploy:prod": "serverless deploy --stage prod",
+    "remove:dev": "serverless remove --stage dev"
+  },
+  "devDependencies": {
+    "serverless": "^3.0.0",
+    "serverless-offline": "^13.0.0",
+    "serverless-python-requirements": "^6.0.0"
+  }
+}
