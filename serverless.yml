@@ -69,7 +69,6 @@ functions:
           cors: true
           authorizer:
             name: jwtAuthorizer
-            resultTtlInSeconds: 0
             identitySource: method.request.header.Authorization
 
   getClaim:
@@ -81,7 +80,6 @@ functions:
           cors: true
           authorizer:
             name: jwtAuthorizer
-            resultTtlInSeconds: 0
             identitySource: method.request.header.Authorization
 
   listClaims:
@@ -93,7 +91,6 @@ functions:
           cors: true
           authorizer:
             name: jwtAuthorizer
-            resultTtlInSeconds: 0
             identitySource: method.request.header.Authorization
 
   # ── Actions (resume state machine from human steps) ──
@@ -106,7 +103,6 @@ functions:
           cors: true
           authorizer:
             name: jwtAuthorizer
-            resultTtlInSeconds: 0
             identitySource: method.request.header.Authorization
 
   supervisorApproval:
@@ -118,7 +114,6 @@ functions:
           cors: true
           authorizer:
             name: jwtAuthorizer
-            resultTtlInSeconds: 0
             identitySource: method.request.header.Authorization
 
   # ── Step Functions activity workers ──
