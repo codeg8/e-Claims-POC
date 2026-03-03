@@ -107,7 +107,7 @@ def prepare_settlement(event: dict, _context) -> dict:
     update_claim_status(claim_id, ClaimStatus.IN_SETTLEMENT)
 
     # Use adjuster's recommendation if provided, otherwise original amount
-    settlement_amount = float(adjuster_review.get("settlementRecommendation") or amount)
+    settlement_amount = Decimal(adjuster_review.get("settlementRecommendation") or amount)
 
     # Stub: in production → call payment service, generate PDFs via S3+Lambda
     payment_ref = f"PAY-{int(time.time())}-{claim_id[:8].upper()}"
@@ -145,7 +145,7 @@ def close_claim(event: dict, _context) -> dict:
     from datetime import datetime, timezone
     extra = {"closedAt": datetime.now(timezone.utc).isoformat()}
     if settlement:
-        extra["settlement"] = Decimal(settlement)
+        extra["settlement"] = settlement
     if reason:
         extra["rejectionReason"] = reason
     if error:

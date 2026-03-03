@@ -1,0 +1,608 @@
+{
+  "info": {
+    "_postman_id": "cb8adf2b-533e-44f8-8027-d8ef0bb28e6d",
+    "name": "e-Claims-POC",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "130802"
+  },
+  "item": [
+    {
+      "name": "Customer",
+      "item": [
+        {
+          "name": "Submit  Claim",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"policyNumber\": \"{{$guid}}\",\r\n    \"amount\": {{$randomInt}}\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{server_addr}}/claims",
+              "host": [
+                "{{server_addr}}"
+              ],
+              "path": [
+                "claims"
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyLTEiLCJyb2xlIjoiQ0xBSU1BTlQiLCJlbWFpbCI6InVzZXItY0BleGFtcGxlLmNvbSJ9.QXBBW7OV2j_5yUWjFe0Piy8Vhr8ZZt2rMZCmcnBtv4s",
+            "type": "string"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {},
+            "exec": [
+              ""
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {},
+            "exec": [
+              ""
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Adjustor",
+      "item": [
+        {
+          "name": "List Claim",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "try {\r",
+                  "    const responseData = pm.response.json();\r",
+                  "    console.log(\"Full Response Body:\", responseData);\r",
+                  "\r",
+                  "    let foundId = null;\r",
+                  "    let amt = null;\r",
+                  "\r",
+                  "    // Logic for Raw Array: [ {...}, {...} ]\r",
+                  "    if (Array.isArray(responseData) && responseData.length > 0) {\r",
+                  "        foundId = responseData[0].claimId || responseData[0].id;\r",
+                  "        amt = responseData[0].amount;\r",
+                  "    } \r",
+                  "    // Logic for Wrapped Array: { \"claims\": [...] }\r",
+                  "    else if (responseData.claims && Array.isArray(responseData.claims) && responseData.claims.length > 0) {\r",
+                  "        foundId = responseData.claims[0].claimId || responseData.claims[0].id;\r",
+                  "        amt = responseData.claims[0].amount;\r",
+                  "    }\r",
+                  "    // Logic for Single Object: { \"claimId\": \"...\" }\r",
+                  "    else if (responseData.claimId || responseData.id) {\r",
+                  "        foundId = responseData.claimId || responseData.id;\r",
+                  "        amt = responseData.amount;\r",
+                  "    }\r",
+                  "\r",
+                  "    if (foundId) {\r",
+                  "        pm.collectionVariables.set(\"lastClaimId\", foundId);\r",
+                  "        pm.collectionVariables.set(\"lastClaimAmt\", parseFloat(amt));\r",
+                  "        console.log(\"✅ SUCCESS: lastClaimId set to:\", foundId);\r",
+                  "    } else {\r",
+                  "        console.error(\"❌ FAILURE: Could not find an ID. Check key names (claimId vs id)\");\r",
+                  "    }\r",
+                  "} catch (e) {\r",
+                  "    console.error(\"❌ ERROR: Response was not valid JSON\", e);\r",
+                  "}"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{server_addr}}/claims/",
+              "host": [
+                "{{server_addr}}"
+              ],
+              "path": [
+                "claims",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Claim Detail",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "try {\r",
+                  "    const responseData = pm.response.json();\r",
+                  "    console.log(\"Full Response Body:\", responseData);\r",
+                  "\r",
+                  "    let foundId = null;\r",
+                  "    let amt = null;\r",
+                  "\r",
+                  "    // Logic for Raw Array: [ {...}, {...} ]\r",
+                  "    if (Array.isArray(responseData) && responseData.length > 0) {\r",
+                  "        foundId = responseData[0].claimId || responseData[0].id;\r",
+                  "        amt = responseData[0].amount;\r",
+                  "    } \r",
+                  "    // Logic for Wrapped Array: { \"claims\": [...] }\r",
+                  "    else if (responseData.claims && Array.isArray(responseData.claims) && responseData.claims.length > 0) {\r",
+                  "        foundId = responseData.claims[0].claimId || responseData.claims[0].id;\r",
+                  "        amt = responseData.claims[0].amount;\r",
+                  "    }\r",
+                  "    // Logic for Single Object: { \"claimId\": \"...\" }\r",
+                  "    else if (responseData.claimId || responseData.id) {\r",
+                  "        foundId = responseData.claimId || responseData.id;\r",
+                  "        amt = responseData.amount;\r",
+                  "    }\r",
+                  "\r",
+                  "    if (foundId) {\r",
+                  "        pm.collectionVariables.set(\"lastClaimId\", foundId);\r",
+                  "        pm.collectionVariables.set(\"lastClaimAmt\", parseFloat(amt));\r",
+                  "        console.log(\"✅ SUCCESS: lastClaimId set to:\", foundId);\r",
+                  "    } else {\r",
+                  "        console.error(\"❌ FAILURE: Could not find an ID. Check key names (claimId vs id)\");\r",
+                  "    }\r",
+                  "} catch (e) {\r",
+                  "    console.error(\"❌ ERROR: Response was not valid JSON\", e);\r",
+                  "}"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{server_addr}}/claims/{{lastClaimId}}",
+              "host": [
+                "{{server_addr}}"
+              ],
+              "path": [
+                "claims",
+                "{{lastClaimId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Review",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// 1. Existing logic for Decision and Note\r",
+                  "const decisions = ['APPROVED', 'REJECTED'];\r",
+                  "const randomDecision = decisions[Math.floor(Math.random() * decisions.length)];\r",
+                  "const lastClaimAmt = Number(pm.variables.get(\"lastClaimAmt\"));\r",
+                  "\r",
+                  "let note = (randomDecision === 'APPROVED') \r",
+                  "    ? `Claim verified. ${pm.variables.replaceIn('{{$randomCatchPhrase}}')}. Approved.`\r",
+                  "    : `Rejected. Reference: ${pm.variables.replaceIn('{{$randomAlphaNumeric}}')}`;\r",
+                  "\r",
+                  "// 2. Build the Payload Object\r",
+                  "let payload = {\r",
+                  "    decision: randomDecision,\r",
+                  "    notes: note\r",
+                  "};\r",
+                  "\r",
+                  "// 3. Add settlementRecommendation ONLY if conditions are met\r",
+                  "// Here, we add a 50% random chance to make it \"optional\"\r",
+                  "const shouldInclude = Math.random() < 0.5; \r",
+                  "\r",
+                  "if (randomDecision === 'APPROVED' && lastClaimAmt && shouldInclude) {\r",
+                  "    payload.settlementRecommendation = Math.floor(Math.random() * (lastClaimAmt + 1));\r",
+                  "}\r",
+                  "\r",
+                  "// 4. Save the entire object as a string variable\r",
+                  "pm.variables.set(\"requestBody\", JSON.stringify(payload));\r",
+                  "\r",
+                  "// Optional Variable if we want to set individual feilds in request body.\r",
+                  "pm.variables.set(\"randomDecision\", randomDecision);\r",
+                  "pm.variables.set(\"randomNote\", note);\r",
+                  ""
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "// {{requestBody}}\r\n\r\n{\r\n    \"decision\": \"{{randomDecision}}\",                      // Either ['APPROVED', 'REJECTED']\r\n    \"notes\": \"{{randomNote}}\",                             // Optional Field\r\n    \"settlementRecommendation\": 300                        // Optional Field\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{server_addr}}/claims/{{lastClaimId}}/adjuster-review",
+              "host": [
+                "{{server_addr}}"
+              ],
+              "path": [
+                "claims",
+                "{{lastClaimId}}",
+                "adjuster-review"
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyLTIiLCJyb2xlIjoiQURKVVNURVIiLCJlbWFpbCI6InVzZXItYUBleGFtcGxlLmNvbSJ9.xhIJvde6xuS9aee6FT8KBKlkVEJVnBk8dq7OH2a_sE8",
+            "type": "string"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {},
+            "exec": [
+              ""
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {},
+            "exec": [
+              ""
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Supervisor",
+      "item": [
+        {
+          "name": "List Claim - Supervisor",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "try {\r",
+                  "    const responseData = pm.response.json();\r",
+                  "    console.log(\"Full Response Body:\", responseData);\r",
+                  "\r",
+                  "    let foundId = null;\r",
+                  "    let amt = null;\r",
+                  "\r",
+                  "    // Logic for Raw Array: [ {...}, {...} ]\r",
+                  "    if (Array.isArray(responseData) && responseData.length > 0) {\r",
+                  "        foundId = responseData[0].claimId || responseData[0].id;\r",
+                  "        amt = responseData[0].amount;\r",
+                  "    } \r",
+                  "    // Logic for Wrapped Array: { \"claims\": [...] }\r",
+                  "    else if (responseData.claims && Array.isArray(responseData.claims) && responseData.claims.length > 0) {\r",
+                  "        foundId = responseData.claims[0].claimId || responseData.claims[0].id;\r",
+                  "        amt = responseData.claims[0].amount;\r",
+                  "    }\r",
+                  "    // Logic for Single Object: { \"claimId\": \"...\" }\r",
+                  "    else if (responseData.claimId || responseData.id) {\r",
+                  "        foundId = responseData.claimId || responseData.id;\r",
+                  "        amt = responseData.amount;\r",
+                  "    }\r",
+                  "\r",
+                  "    if (foundId) {\r",
+                  "        pm.collectionVariables.set(\"lastClaimId\", foundId);\r",
+                  "        pm.collectionVariables.set(\"lastClaimAmt\", parseFloat(amt));\r",
+                  "        console.log(\"✅ SUCCESS: lastClaimId set to:\", foundId);\r",
+                  "    } else {\r",
+                  "        console.error(\"❌ FAILURE: Could not find an ID. Check key names (claimId vs id)\");\r",
+                  "    }\r",
+                  "} catch (e) {\r",
+                  "    console.error(\"❌ ERROR: Response was not valid JSON\", e);\r",
+                  "}"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{server_addr}}/claims/",
+              "host": [
+                "{{server_addr}}"
+              ],
+              "path": [
+                "claims",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Approval",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  ""
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// 1. Existing logic for Decision and Note\r",
+                  "const decisions = ['APPROVED', 'REJECTED'];\r",
+                  "const randomDecision = decisions[Math.floor(Math.random() * decisions.length)];\r",
+                  "const lastClaimAmt = Number(pm.variables.get(\"lastClaimAmt\"));\r",
+                  "\r",
+                  "let note = (randomDecision === 'APPROVED') \r",
+                  "    ? `Claim verified. ${pm.variables.replaceIn('{{$randomCatchPhrase}}')}. Approved.`\r",
+                  "    : `Rejected. Reference: ${pm.variables.replaceIn('{{$randomAlphaNumeric}}')}`;\r",
+                  "\r",
+                  "// 2. Build the Payload Object\r",
+                  "let payload = {\r",
+                  "    decision: randomDecision,\r",
+                  "    notes: note\r",
+                  "};\r",
+                  "\r",
+                  "// 3. Add settlementRecommendation ONLY if conditions are met\r",
+                  "// Here, we add a 50% random chance to make it \"optional\"\r",
+                  "const shouldInclude = Math.random() < 0.5; \r",
+                  "\r",
+                  "if (randomDecision === 'APPROVED' && lastClaimAmt && shouldInclude) {\r",
+                  "    payload.finalAmount = Math.floor(Math.random() * (lastClaimAmt + 1));\r",
+                  "}\r",
+                  "\r",
+                  "// 4. Save the entire object as a string variable\r",
+                  "pm.variables.set(\"requestBody\", JSON.stringify(payload));\r",
+                  "\r",
+                  "// Optional Variable if we want to set individual feilds in request body.\r",
+                  "pm.variables.set(\"randomDecision\", payload.decision);\r",
+                  "pm.variables.set(\"randomNote\", payload.notes);\r",
+                  ""
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "//{{requestBody}}\r\n\r\n{\r\n    \"decision\": \"{{randomDecision}}\",          // Either ['APPROVED', 'REJECTED']\r\n    \"notes\": \"{{randomNote}}\",                 // Optional Field\r\n    \"finalAmount\": 200     // OPtional Field\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:3000/claims/{{lastClaimId}}/supervisor-approval",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "claims",
+                "{{lastClaimId}}",
+                "supervisor-approval"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Claim Detail",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "try {\r",
+                  "    const responseData = pm.response.json();\r",
+                  "    console.log(\"Full Response Body:\", responseData);\r",
+                  "\r",
+                  "    let foundId = null;\r",
+                  "    let amt = null;\r",
+                  "\r",
+                  "    // Logic for Raw Array: [ {...}, {...} ]\r",
+                  "    if (Array.isArray(responseData) && responseData.length > 0) {\r",
+                  "        foundId = responseData[0].claimId || responseData[0].id;\r",
+                  "        amt = responseData[0].amount;\r",
+                  "    } \r",
+                  "    // Logic for Wrapped Array: { \"claims\": [...] }\r",
+                  "    else if (responseData.claims && Array.isArray(responseData.claims) && responseData.claims.length > 0) {\r",
+                  "        foundId = responseData.claims[0].claimId || responseData.claims[0].id;\r",
+                  "        amt = responseData.claims[0].amount;\r",
+                  "    }\r",
+                  "    // Logic for Single Object: { \"claimId\": \"...\" }\r",
+                  "    else if (responseData.claimId || responseData.id) {\r",
+                  "        foundId = responseData.claimId || responseData.id;\r",
+                  "        amt = responseData.amount;\r",
+                  "    }\r",
+                  "\r",
+                  "    if (foundId) {\r",
+                  "        pm.collectionVariables.set(\"lastClaimId\", foundId);\r",
+                  "        pm.collectionVariables.set(\"lastClaimAmt\", parseFloat(amt));\r",
+                  "        console.log(\"✅ SUCCESS: lastClaimId set to:\", foundId);\r",
+                  "    } else {\r",
+                  "        console.error(\"❌ FAILURE: Could not find an ID. Check key names (claimId vs id)\");\r",
+                  "    }\r",
+                  "} catch (e) {\r",
+                  "    console.error(\"❌ ERROR: Response was not valid JSON\", e);\r",
+                  "}"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{Adjustor Token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:3000/claims/{{lastClaimId}}",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "claims",
+                "{{lastClaimId}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyLTMiLCJyb2xlIjoiU1VQRVJWSVNPUiIsImVtYWlsIjoidXNlci1zQGV4YW1wbGUuY29tIn0.FH-DN6pYT4eAA-Gx5ZRF_WipqGolBFNZ-0WPGzfMWMI",
+            "type": "string"
+          }
+        ]
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {},
+            "exec": [
+              ""
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {},
+            "exec": [
+              ""
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {},
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {},
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "server_addr",
+      "value": ""
+    },
+    {
+      "key": "lastClaimId",
+      "value": ""
+    },
+    {
+      "key": "lastClaimAmt",
+      "value": ""
+    }
+  ]
+}

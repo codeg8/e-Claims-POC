@@ -70,7 +70,7 @@
             },
             {
               "Variable": "$.amount",
-              "NumericGreaterThan": 10000
+              "NumericGreaterThan": 500
             }
           ],
           "Next": "Step 4 - Supervisor Approval"
