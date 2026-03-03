@@ -7,6 +7,7 @@ provider:
   runtime: python3.11
   region: ${opt:region, 'us-east-1'}
   stage: ${opt:stage, 'dev'}
+  timeout: 30
   environment:
     CLAIMS_TABLE: ${self:service}-claims-${self:provider.stage}
     TOKENS_TABLE: ${self:service}-tokens-${self:provider.stage}
@@ -43,6 +44,7 @@ custom:
   serverless-offline:
     httpPort: 3000
     noPrependStageInUrl: true
+    lambdaTimeout: 30
   pythonRequirements:
     dockerizePip: false
     slim: true
