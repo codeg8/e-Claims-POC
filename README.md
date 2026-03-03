@@ -52,13 +52,13 @@ Insurance claim automation POC using **AWS Step Functions** as the orchestration
 
 ## Claim Workflow (5 Steps)
 
-| Step | Type | Description | Timeout |
-|------|------|-------------|---------|
-| **AutoTriage** | Automated | Fraud scoring, priority assignment | ~2s |
-| **AdjusterReviewWait** | 🧑 Human | Adjuster approves/rejects | 7 days |
-| **SupervisorApprovalWait** | 🧑 Human | Required for claims > $10,000 | 3 days |
-| **PrepareSettlement** | Automated | Calculates payout, generates docs | ~5s |
-| **CloseClaim** | Automated | Notifies claimant, audit record | ~2s |
+| Step                      | Type | Description                        | Timeout |
+|---------------------------|------|------------------------------------|---------|
+| **PolicyValidation**      | Automated | Fraud scoring, priority assignment | ~2s |
+| **AdjusterReviewWait**    | 🧑 Human | Adjuster approves/rejects          | 7 days |
+| **SupervisorApprovalWait** | 🧑 Human | Required for claims > $500         | 3 days |
+| **PrepareSettlement**     | Automated | Calculates payout, generates docs  | ~5s |
+| **CloseClaim**            | Automated | Notifies claimant, audit record    | ~2s |
 
 ### Claim Status Flow
 
@@ -90,6 +90,9 @@ SUBMITTED → IN_TRIAGE → PENDING_ADJUSTER → PENDING_SUPERVISOR → IN_SETTL
 insurance-core/
 ├── serverless.yml                   # Infra: API GW, Lambdas, DynamoDB, Step Functions
 ├── requirements.txt                 # boto3, PyJWT
+├── package.json                     # serverless plugins (offline, python-requirements)
+├── generate_tokens.py               # Utility to generate test JWTs for local dev
+├── postman_collection.json          # Postman collection for API testing
 ├── statemachine/
 │   └── claim-workflow.json          # Step Functions ASL (language-agnostic)
 └── src/
@@ -181,11 +184,28 @@ pip install -r requirements.txt   # for local dev/testing
 ```bash
 serverless deploy --stage dev
 ```
+or 
+```bash
+npm run deploy:dev
+```
+
+### Undeploy
+```bash
+serverless remove --stage dev
+```
+or 
+```bash
+npm run remove:dev
+```
 
 ### Local Dev
 ```bash
 serverless offline
 # API at http://localhost:3000
+```
+or 
+```bash
+npm run dev
 ```
 
 ### Generate Test JWTs (dev only)
